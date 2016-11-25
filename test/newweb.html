@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="../dist/mermaid.forest.css"/>
+    <script src="../dist/mermaid.js"></script>
+    <script src="../src/graph.js"></script>
+    <script src="../dist/mermaidAPI.js"></script>
+    <script type="text/javascript" src="http://cst.stu.126.net/u/js/cms/specialWebCommon.0.1.js"></script>
+    <script>
+        function coolAction(){
+            console.log('Got callback in user defined function');
+        }
+        mermaidAPI.initialize({
+            startOnLoad:true
+        });
+    </script>
+    <style>
+        .cluster {
+            fill: #fcac93;
+            rx:4px;
+            stroke: grey;
+        }
+        .dialog{
+            position: absolute;
+            top:0;
+            left: 0;
+            width:60px;
+            height: 39px;
+            background-color: red;
+            transform:translate(224px,183.5px);
+        }
+    </style>
+
+</head>
+<body>
+<div style="width: 622px;height: 278px;">
+    <!--<div class="mermaid" id="i141">-->
+    <!--</div>-->
+    <div class="j-svgGraph">
+
+    </div>
+</body>
+
+<script>
+    var _course = [{id:1,name:"课程1",isOver:1,pre:null},
+        {id:2,name:"课程2",isOver:1,pre:[{id:1,isRelated:1}]},
+        {id:7,name:"课程7",isOver:1,pre:[{id:4,isRelated:0}]},
+        {id:8,name:"课程8",isOver:0,pre:[{id:4,isRelated:0}]},
+        {id:3,name:"课程3",isOver:0,pre:[{id:1,isRelated:0}]},
+        {id:4,name:"课程4",isOver:0,pre:[{id:2,isRelated:0},{id:3,isRelated:1}]},
+        {id:5,name:"课程5",isOver:1,pre:[{id:4,isRelated:0}]},
+        {id:6,name:"课程6",isOver:1,pre:[{id:4,isRelated:1}]},
+        {id:9,name:"课程9",isOver:1,pre:[{id:8,isRelated:1}]},
+        {id:10,name:"课程10",isOver:1,pre:[{id:9,isRelated:1}]}];
+
+    var _relationConfig = ['必修关系','选修关系'];
+
+    var config = {
+        startOnLoad:true,
+        callback:function(id){
+            console.log(id,' rendered');
+        },
+        flowchart:{
+            useMaxWidth:false,
+            htmlLabels:true
+        },
+        logLevel:5
+    };
+
+    window.mermaidInit = 'graph LR;';
+    window.mermaidContent ='';
+    window.stopTarg =false;
+    window.graphNode = {};
+    window.clickDialog = {rectNode:null,textLink:null,textBtn:null,id:null};
+
+    graph =new Graph();
+
+    createGraph();
+    graphBFS(graph);
+    graphShow();
+    /**
+     * 获取结点的index
+     *
+     */
+    function getNode(_id){
+        for (var i = _course.length - 1; i >= 0; i--) {
+            if(_course[i].id == _id){
+                return i;
+            }
+        }
+    }
+    function createGraph(){
+        for (var i = 0, len =_course.length; i <len; i++) {
+            if(_course[i].id){
+                window.graphNode[i]=graph.addNode(_course[i]);
+            }
+        }
+        for (var i = 0, len1 =_course.length; i <len1; i++) {
+            var _nodePre = _course[i].pre;
+            var _nodeIndex = i;
+            if(_course[i] && _nodePre && _nodePre.length){
+                for (var j = 0, len2 =_nodePre.length; j <len2; j++) {
+                    if(_nodePre[j].id){
+                        var _preNodeIndex = getNode(_nodePre[j].id);
+                        window.graphNode[_preNodeIndex].addEdge(window.graphNode[_nodeIndex],1);
+                        window.graphNode[_nodeIndex].addEdge(window.graphNode[_preNodeIndex],1);
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * 广度遍历图
+     *
+     */
+    function graphBFS(graph){
+        for(var i= 0,len=graph.nodes.length;i<len;i++){
+            if(!graph.nodes[i].name.pre){
+                ans=[];
+                traversedNodes=[];
+                traversedNodes.push(graph.nodes[i]);
+                allNodes=graph.getAllNodes();
+                marked={};
+                while(traversedNodes.length!=0){
+                    var v=traversedNodes.shift();
+                    marked[v.name.name]=true;
+                    parseData(v);
+                    console.log(v);
+                    ans.push(v);
+                    adjList=v.adjList;
+                    for (var i=0;i<adjList.length;i++){
+                        u=adjList[i];
+                        if(marked[u.name.name]!=true){
+                            traversedNodes.push(u);
+                            marked[u.name.name]=true;
+
+                        }
+                    }
+                }
+            }else{
+                continue;
+            }
+        }
+    }
+    /**
+     * 解析数据
+     *
+     */
+    function parseData(_v){
+        if(!window.stopTarg){
+            var _nodeIndex = getNode(_v.name.id);
+            var _node = _course[_nodeIndex];
+            if(_node.pre && _node.pre.length>0){
+                for(var j=0 ,len2=_node.pre.length;j<len2;j++){
+                    var _nodePreIndex = getNode(_node.pre[j].id);
+                    parseEngine(_nodePreIndex,_nodeIndex,j);
+                }
+            }else if(_v.adjList.length<=0){
+                parseEngine(-1,_nodeIndex,-1);
+            }
+        }
+    }
+    /**
+     * 销毁弹窗
+     *
+     */
+    var deleteDialog = function(){
+        $(window.clickDialog.rectNode).remove();
+        $(window.clickDialog.textLink).remove();
+        $(window.clickDialog.textBtn).remove();
+
+        window.clickDialog = {rectNode:null,textLink:null,textBtn:null,id:null};
+    }
+    /**
+     * 添加弹窗
+     *
+     */
+    var addDialog = function(_nodeId){
+        var _id = _nodeId.substring(1);
+        var _nodeData = _course[parseInt(getNode(_id))];
+        window.clickDialog.id = _nodeId;
+        createSvg(_nodeId);
+        var _text1 = '<a href="http://study.163.com/course/introduction/1444002.htm#/courseDetail" target="_blank">查看课程</a>';
+        var _text2 = _nodeData.isOver ? '<a>标为未学</a>':'<a>标为已学</a>';
+        $(window.clickDialog.textLink).html(_text1);
+        $(window.clickDialog.textBtn).html(_text2);
+        $("#"+_nodeId).append(window.clickDialog.rectNode);
+        $("#"+_nodeId).append(window.clickDialog.textLink);
+        $("#"+_nodeId).append(window.clickDialog.textBtn);
+
+        $(window.clickDialog.textBtn).click(function(event){
+            event.stopPropagation();
+            if(_nodeData.isOver){
+                _course[getNode(_id)].isOver = 0;
+            }else{
+                _course[getNode(_id)].isOver = 1;
+            }
+//            $("#i141").empty();
+            graph = {};
+            graph =new Graph();
+            createGraph();
+            graphBFS(graph);
+            graphShow();
+//            return;
+        })
+    }
+    /**
+     * 创建svg元素
+     *
+     */
+    var createSvg = function(_nodeId){
+        window.clickDialog.rectNode = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        window.clickDialog.textLink = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        window.clickDialog.textBtn = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        $(window.clickDialog.rectNode).attr({
+            x:20,
+            y:25,
+            rx:5,
+            ry:5,
+            width:60,
+            height:39,
+            width:60,
+            height:39,
+            style:'fill: rgb(255, 255, 255);stroke: rgb(19, 84, 12);stroke-width: 1px;'
+        });
+        $(window.clickDialog.textLink).attr({
+            x:22,
+            y:40,
+            width:60,
+            height:39
+        });
+        $(window.clickDialog.textBtn).attr({
+            x:22,
+            y:60,
+            width:60,
+            height:39,
+            style:'cursor: pointer;'
+        });
+    }
+    /**
+     * 点解卡片的callback事件
+     *
+     */
+    var callback = function(_nodeId){
+        if(window.clickDialog.id == _nodeId){
+            deleteDialog();
+            return;
+        }
+        deleteDialog();
+        addDialog(_nodeId);
+    }
+    /**
+     * 获取是否画线
+     *
+     */
+    function allPreCourseIsOver(_index){//当是必修且前置课程都修完时画线
+        var _nodePreList = _course[_index].pre;
+        var targ = true;
+        for(var i=0,len=_nodePreList.length;i<len;i++){
+            if(!_course[getNode(_nodePreList[i].id)].isOver && _nodePreList[i].isRelated){
+                targ = false;
+            }
+            // if(!_nodePreList[i].isOver){
+            //     return false;
+            // }
+        }
+        return targ;
+    }
+    /**
+     * 转化mermaid语法引擎
+     *
+     */
+    function parseEngine(_nodePreIndex,_nodeIndex,_currenPreIndex){
+        var _node = _course[_nodeIndex];
+        var _overLink = _node.isOver ? '['+_node.name+']' : '(('+_node.name+'))';
+        var _relateLink  = _node.pre[_currenPreIndex].isRelated ? '--必修关系-->':'-.选修关系.->';
+        if(_nodePreIndex>=0 &&_currenPreIndex>=0){
+            var _nodePre = _course[_nodePreIndex];
+
+            if(allPreCourseIsOver(_nodeIndex)){//保证前置课程已经学完，才去画图
+                window.mermaidContent += 'A'+_nodePreIndex+'['+_nodePre.name+']'+_relateLink + 'A'+_nodeIndex+_overLink+';click '+'A'+_nodePreIndex+' callback'+';click '+'A'+_nodeIndex+' callback;';
+            }else{
+                window.stopTarg = true;
+            }
+        }else{
+            window.mermaidContent += 'A'+_nodeIndex+'(('+_node.name+'))'+';click '+'A'+_nodeIndex+' callback;';
+        }
+    }
+    /**
+     * 转化mermaid语法引擎
+     *
+     */
+    function graphShow(){
+        debugger
+        $('#i141').empty();
+//        mermaid.initialize(config);
+        var node = $('.j-svgGraph');
+        if(window.mermaidContent){
+            var graphDefinition = window.mermaidInit +window.mermaidContent;
+        }
+        var insertSvg = function(svgCode, bindFunctions){
+            /**
+             * 点解卡片的callback事件
+             *
+             */
+            var callback = function(_nodeId){
+                if(window.clickDialog.id == _nodeId){
+                    deleteDialog();
+                    return;
+                }
+                deleteDialog();
+                addDialog(_nodeId);
+            }
+            debugger
+            node.html(svgCode);
+            if(typeof callback !== 'undefined'){
+                callback(id);
+            }
+            bindFunctions(node);
+        };
+
+//        var insertSvg = function(svgCode, bindFunctions){
+//            debugger
+//            node.html(svgCode);
+//        };
+        var cb = function(html){
+            node.html(html);
+            console.log(html);
+        }
+//        mermaidAPI.render('i141',graphDefinition,cb);
+        mermaidAPI.render('i141',graphDefinition,insertSvg, node);
+
+        var graph = mermaidAPI.render('graphDiv', graphDefinition, insertSvg);
+    }
+
+</script>
+</html>
